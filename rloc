@@ -1,0 +1,73 @@
+#!/usr/bin/env ruby
+
+require 'set'
+
+def matched?(str, keys)
+  keys.each do |key|
+    if not str.index(key)
+      return false
+    end
+  end
+  return true
+end
+
+def clipUselessSubPath(str, pats)
+  first_useless_idx = 0
+  pats.each do |pat|
+    idx = str.rindex(pat)
+    first_useless_idx = [first_useless_idx, idx + pat.length].max
+  end
+  cutidx = str.index("/", first_useless_idx)
+  if cutidx
+    str = str[0, cutidx]
+  end
+  return str
+end
+
+def hlputs(str, keys)
+  keys.length.times do |i|
+    key = keys[i]
+    str.gsub!(key, "\033[1;#{31+i}m\\&\033[m")
+  end
+  puts str
+end
+
+args = []
+show_only_directory = false
+ARGV.each do |x|
+  if x == '-d'
+    show_only_directory = true
+  else
+    args << x
+  end
+end
+
+if args.length == 0
+  puts "usage: rloc key1 key2 key3 ... [-d]"
+end
+
+arg0 = args[0]
+arg_other = args[1..-1]
+
+yet_put = Set.new
+
+open("|locate #{arg0}") do |f| 
+  f.each_line do |line|
+    line.strip!
+    if not matched?(line, arg_other)
+      next
+    end
+    line = clipUselessSubPath(line, args)
+    if (yet_put.include?(line))
+      next
+    end
+    yet_put.add(line)
+    if show_only_directory
+      if File.directory?(line)
+        hlputs line, args
+      end
+    else
+      hlputs line, args
+    end
+  end
+end

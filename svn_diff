@@ -1,0 +1,3 @@
+#!/bin/bash
+
+svn diff --diff-cmd diffwrap.sh $@

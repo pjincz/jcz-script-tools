@@ -1,0 +1,9 @@
+#!/bin/bash
+
+get_lists()
+{
+	cat $1 | grep -E "(ClInclude|ClCompile|Midl|ResourceCompile)" | grep "Include" | sed 's/^.*Include=\"\(.*\)\".*$/\1/' | sed 's#\\#/#g'
+	cat $1 | grep -E "ModuleDefinitionFile" | sed 's/^.*<ModuleDefinitionFile>\(.*\)<\/ModuleDefinitionFile>/\1/' | sed 's#\\#/#g' | sed 's#^\./##'
+}
+
+get_lists "$1" | sort -u | tee /dev/stderr | sed 's/^/\t\t/'  | xclip -selection clipboard 

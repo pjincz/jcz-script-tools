@@ -1,0 +1,81 @@
+#!/usr/bin/env ruby
+
+$search_pat = nil
+$find_header = false
+$find_source = false
+
+ARGV.each do |arg|
+  if arg == '-h'
+    $find_header = true
+  elsif arg == '-s'
+    $find_source = true
+  else
+    $search_pat = arg
+  end
+end
+
+if not $search_pat
+  puts "usage: #{__FILE__} search_pat [-h] [-s]"
+end
+
+if not $find_header and not $find_source
+  $find_header = true
+  $find_source = true
+end
+
+$search_path = Dir.pwd
+
+#initial done -----------------------------------------------------
+require 'pathname'
+
+GrepMatchedItem = Struct.new(:line, :cont)
+
+def mygrep(fname, re)
+  matched = []
+  open(fname) do |f| 
+    lidx = 1
+    f.each_line do |l|
+      if re =~ l
+        matched << GrepMatchedItem.new(lidx, l)
+      end
+      lidx += 1
+    end
+  end
+  if not matched.empty?
+    puts fname
+    matched.each do |s|
+      lead = sprintf("%6d: ", s.line)
+      cont = s.cont.gsub(re, "\033[1;31m\\&\033[m")
+      puts lead + cont
+    end
+  end
+end
+
+puts "locating file list"
+
+locate_exps = []
+locate_exps += ['h', 'hpp', 'hxx', 'hh'] if $find_header
+locate_exps += ['c', 'cpp', 'cxx', 'cc', 'inl'] if $find_source
+locate_re = "^#{$search_path}.*\\.(#{locate_exps.join '|'})$"
+located_files = []
+open("|locate --regex '#{locate_re}'") do |f|
+  f.each_line do |l|
+    located_files << l.strip
+  end
+end
+
+puts "searching patten, file count #{located_files.length}"
+
+re = Regexp.new($search_pat)
+located_files.length.times do |i|
+  # 显示进度
+  fname = located_files[i]
+  print "[#{i+1}/#{located_files.length}]     \r"
+  $stdout.flush
+  if File.file?(fname)
+    mygrep(fname, re)
+  end
+end
+
+puts
+puts
