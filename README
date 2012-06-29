@@ -1,0 +1,17 @@
+Common tools
+	svn_diff
+		A script wrap svn diff, use a gui diff tool, change diffwrap.sh to use whatever diff tool you like.
+	rloc
+		A script wrap locate(like everything in windows), hommization
+		filter useness path
+		keyword color highlight
+		support search only directory
+	find_src
+		match regex in code
+		fast!!!
+		color highlight
+		support only search header files or source files
+
+Kingsoft WPS work tools
+	commit_list 
+		make a Kingsoft style commit list.
