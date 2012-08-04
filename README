@@ -11,7 +11,7 @@ Common tools
 		fast!!!
 		color highlight
 		support only search header files or source files
-	sqs
+	scs
 		cache coding in memory and then search concurrently.
 		very very fast!!! but need lots of memory.
 		userinterface pool!
