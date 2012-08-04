@@ -33,12 +33,15 @@ GrepMatchedItem = Struct.new(:line, :cont)
 def mygrep(fname, re)
   matched = []
   open(fname) do |f| 
-    lidx = 1
-    f.each_line do |l|
-      if re =~ l
-        matched << GrepMatchedItem.new(lidx, l)
+    cont = f.read
+    if re =~ cont
+      lidx = 1
+      cont.each_line do |l|
+        if re =~ l
+          matched << GrepMatchedItem.new(lidx, l)
+        end
+        lidx += 1
       end
-      lidx += 1
     end
   end
   if not matched.empty?
