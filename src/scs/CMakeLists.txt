@@ -9,10 +9,15 @@ macro(QT4_MOC_CPP_FILES)
 	include_directories(${CMAKE_CURRENT_BINARY_DIR})
 endmacro()
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
+
 find_package(Qt4 REQUIRED QtCore QtDBus)
 include(${QT_USE_FILE})
 
-QT4_MOC_CPP_FILES(main.cpp)
-add_executable(test main.cpp)
+find_package(INotifyTools REQUIRED)
+include_directories(${INOTIFYTOOLS_INCLUDE_DIR})
 
-target_link_libraries(test ${QT_LIBRARIES})
+QT4_MOC_CPP_FILES(main.cpp)
+add_executable(scs main.cpp)
+
+target_link_libraries(scs ${QT_LIBRARIES} ${INOTIFYTOOLS_LIBRARY})
