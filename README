@@ -2,7 +2,7 @@ Common tools
 	svn_diff
 		A script wrap svn diff, use a gui diff tool, change diffwrap.sh to use whatever diff tool you like.
 	rloc
-		A script wrap locate(like everything in windows), hommization
+		A script wrap locate(like 'everything' in windows), hommization
 		filter useness path
 		keyword color highlight
 		support search only directory
@@ -11,6 +11,11 @@ Common tools
 		fast!!!
 		color highlight
 		support only search header files or source files
+	sqs
+		cache coding in memory and then search concurrently.
+		very very fast!!! but need lots of memory.
+		userinterface pool!
+		C++
 
 Kingsoft WPS work tools
 	commit_list 
