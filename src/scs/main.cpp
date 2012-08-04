@@ -2,6 +2,7 @@
 #include <QtDBus/QtDBus>
 #include <inotifytools/inotifytools.h>
 #include <inotifytools/inotify.h>
+#include <regex.h>
 
 #define qCoreApp QCoreApplication::instance()
 
@@ -260,38 +261,45 @@ private:
 class SCSSearchTask : public QRunnable
 {
 public:
-	SCSSearchTask(const QStringList & entrys, const QRegExp & regexp
+	SCSSearchTask(const QStringList & entrys, const QString & regexp
 			, SCSDataCenter * d, QObject * reportTo)
 		: m_entrys(entrys), m_regexp(regexp), m_reportTo(reportTo), m_dataCenter(d)
 	{
 	}
 	void run()
 	{
-		g_sout << "test" << endl;
 		QStringList result;
+		regex_t r;
+		regcomp(&r, m_regexp.toLocal8Bit().constData(), 0);
 		foreach (QString entry, m_entrys)
 		{
 			QByteArray data = m_dataCenter->getData(entry);
 			if (data.isEmpty())
 				continue;
-			QTextStream s(&data, QIODevice::ReadOnly);
-			QString line;
-			while (!(line = s.readLine()).isNull())
-			{
-				if (m_regexp.indexIn(line) != -1)
-				{
-					result << entry;
-					break;
-				}
-			}
+//			QTextStream s(&data, QIODevice::ReadOnly);
+//			QString line;
+//			while (!(line = s.readLine()).isNull())
+//			{
+//				if (m_regexp.indexIn(line) != -1)
+//				{
+//					result << entry;
+//					break;
+//				}
+//			}
+			// 这一段代码性能很关键
+			// 使用 gnu regex代替 QRegex，避免编码转换导致效率低下
+			if (regexec(&r, data.constData(), 0, NULL, 0) == 0)
+				result << entry;
 		}
+		regfree(&r);
+
 		QEvent * e = new SCSSearchTaskReportEvent(result);
 		QCoreApplication::postEvent(m_reportTo, e);
 	}
 
 private:
 	QStringList m_entrys;
-	QRegExp m_regexp;
+	QString m_regexp;
 	QObject * m_reportTo;
 	SCSDataCenter * m_dataCenter;
 };
@@ -300,51 +308,46 @@ class SCSSearchRequestServ : public QObject
 {
 public:
 	SCSSearchRequestServ(SCSDataCenter * d, QObject * parent)
-		: QObject(parent), m_dataCenter(d)
+		: QObject(parent), m_dataCenter(d), m_intf(0)
 	{
 	}
-	void run(const QString & reportTo, const QString & regex)
+	bool run(const QString & reportTo, const QString & regex)
 	{
-		QDBusConnection c = QDBusConnection::sessionBus();
-		qDebug() << "1";
-		m_intf = new QDBusInterface(reportTo, "/receiver"
-			, "", c, this);
-		qDebug() << "2";
-		if (!m_intf->isValid())
-		{
-			qDebug() << "exit!";
-			g_sout << QDBusConnection::sessionBus().lastError().message() << endl;
-			deleteLater();
-			return;
-		}
-		qDebug() << "asf";
+		m_reportTo = reportTo;
 
 		QStringList entrys = m_dataCenter->entrys();
 		if (entrys.count() == 0)
 		{
 			// nothing need to do.
-			m_intf->call("reportProgress", 0, 0);
 			deleteLater();
-			return;
+			return false;
 		}
 
 		m_taskcount = 0;
 		m_taskcompleted = 0;
 		int disted = 0;
-		QRegExp regexp(regex);
+		//QThreadPool::globalInstance()->setMaxThreadCount(1);
 		while(disted < entrys.count())
 		{
 			SCSSearchTask * p = new SCSSearchTask(entrys.mid(disted, 100)
-					, regexp, m_dataCenter, this);
+					, regex, m_dataCenter, this);
 			QThreadPool::globalInstance()->start(p);
 			disted += 100;
 			++m_taskcount;
 		}
+		return true;
 	}
 	bool event(QEvent * e)
 	{
 		if (e->type() == SCSSearchTaskReport)
 		{
+			if (!m_intf && !initIntf())
+			{
+				g_serr << "Can not report to:" << m_reportTo;
+				deleteLater();
+				return true;
+			}
+
 			SCSSearchTaskReportEvent * se = (SCSSearchTaskReportEvent *)e;
 			QStringList rl = se->result();
 			foreach (QString r, rl)
@@ -364,10 +367,24 @@ public:
 		return QObject::event(e);
 	}
 private:
+	bool initIntf()
+	{
+		QDBusConnection c = QDBusConnection::sessionBus();
+		m_intf = new QDBusInterface(m_reportTo, "/receiver" , "", c, this);
+		if (!m_intf->isValid())
+		{
+			g_sout << QDBusConnection::sessionBus().lastError().message() << endl;
+			return false;
+		}
+		return true;
+	}
+
+private:
 	SCSDataCenter * m_dataCenter;
 	QDBusInterface * m_intf;
 	int m_taskcount;
 	int m_taskcompleted;
+	QString m_reportTo;
 };
 
 class SCSServer : public QObject
@@ -432,11 +449,11 @@ public slots:
 	{
 		return m_dataCenter->entrys();
 	}
-	void requestSearch(QString receiver, QString regexp)
+	bool requestSearch(QString receiver, QString regexp)
 	{
 		report(tr("%1 search for %2").arg(receiver).arg(regexp));
 		SCSSearchRequestServ * p = new SCSSearchRequestServ(m_dataCenter, this);
-		p->run(receiver, regexp);
+		return p->run(receiver, regexp);
 	}
 private:
 	SCSINotifyServ * m_inotifyServ;
@@ -509,13 +526,9 @@ int client_main(QStringList args)
 	}
 	QString regexp = args[0];
 
-	if (!c.registerService("aa.aa.aa.aa"))
-	{
-		g_serr << c.lastError().message() << endl;
-	}
 	SCSReportReceiver receiver;
 	c.registerObject("/receiver", &receiver, QDBusConnection::ExportAllSlots);
-	i.call("requestSearch", "aa.aa.aa.aa", regexp);
+	i.call("requestSearch", c.baseService(), regexp);
 	return qCoreApp->exec();
 }
 
