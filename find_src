@@ -9,6 +9,8 @@ ARGV.each do |arg|
     $find_header = true
   elsif arg == '-s'
     $find_source = true
+  elsif arg == '-t'
+    $find_text = true
   else
     $search_pat = arg
   end
@@ -18,9 +20,10 @@ if not $search_pat
   puts "usage: #{__FILE__} search_pat [-h] [-s]"
 end
 
-if not $find_header and not $find_source
+if not $find_header and not $find_source and not $find_text
   $find_header = true
   $find_source = true
+  $find_text
 end
 
 $search_path = Dir.pwd
@@ -57,8 +60,9 @@ end
 puts "locating file list"
 
 locate_exps = []
-locate_exps += ['h', 'hpp', 'hxx', 'hh'] if $find_header
+locate_exps += ['h', 'hpp', 'hxx', 'hh', 'idl'] if $find_header
 locate_exps += ['c', 'cpp', 'cxx', 'cc', 'inl'] if $find_source
+locate_exps += ['txt'] if $find_text
 locate_re = "^#{$search_path}.*\\.(#{locate_exps.join '|'})$"
 located_files = []
 open("|locate --regex '#{locate_re}'") do |f|
