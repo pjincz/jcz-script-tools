@@ -3,6 +3,7 @@
 #include <inotifytools/inotifytools.h>
 #include <inotifytools/inotify.h>
 #include <regex.h>
+#include <errno.h>
 
 #define qCoreApp QCoreApplication::instance()
 
@@ -22,14 +23,30 @@ class SCSINotifyThread : public QThread
 	Q_OBJECT
 public:
 	SCSINotifyThread(const QString & path)
-		: m_path(path)
+		: m_path(path), m_exitCode(-1)
 	{
+		moveToThread(this);
 	}
 	void run()
 	{
-		inotifytools_initialize();
-		inotifytools_watch_recursively(m_path.toLocal8Bit().constData()
-				, IN_ALL_EVENTS);
+		m_exitCode = myRun();
+	}
+	int myRun()
+	{
+		if (!inotifytools_initialize())
+		{
+			setErrorDescription("Could not initialize inotify.");
+			return 1;
+		}
+		if (!inotifytools_watch_recursively(m_path.toLocal8Bit().constData() , IN_ALL_EVENTS))
+		{
+			if (inotifytools_error() == ENOSPC)
+				setErrorDescription("Upper limit on inotify watches reached!\n"
+					"Allowed per user via /proc/sys/fs/inotify/max_user_watches");
+			else
+				setErrorDescription(QString::fromLocal8Bit(strerror(inotifytools_error())));
+			return 1;	
+		}
 		
 		emit monitorEstablished();
 		
@@ -39,15 +56,42 @@ public:
 			QString fname = QString("%1%2").arg(inotifytools_filename_from_wd(e->wd)).arg(e->name);
 			if ((e->mask & IN_CREATE) || (e->mask & IN_MOVED_TO))
 			{
-				inotifytools_watch_recursively(fname.toLocal8Bit().constData(), IN_ALL_EVENTS);
+				if (!inotifytools_watch_recursively(fname.toLocal8Bit().constData(), IN_ALL_EVENTS))
+				{
+					if (inotifytools_error() == ENOSPC)
+						setErrorDescription("Upper limit on inotify watches reached!\n"
+							"Allowed per user via /proc/sys/fs/inotify/max_user_watches");
+					else
+						setErrorDescription(QString::fromLocal8Bit(strerror(inotifytools_error())));
+					return 1;	
+				}
 				emit fileAdded(fname);
 			}
 			else if ((e->mask & IN_DELETE) || (e->mask & IN_MOVED_FROM))
+			{
 				emit fileRemoved(fname);
+			}
 			else if (e->mask & IN_CLOSE_WRITE)
+			{
 				emit fileModified(fname);
+			}
 			e = inotifytools_next_event(-1);
 		}
+	}
+	int exitCode()
+	{
+		if (isRunning())
+			return -1;
+		return m_exitCode;
+	}
+	QString errorDescription()
+	{
+		return m_errorDescription;
+	}
+protected:
+	void setErrorDescription(const QString & str)
+	{
+		m_errorDescription = str;
 	}
 signals:
 	void fileAdded(QString filePath);
@@ -56,6 +100,8 @@ signals:
 	void monitorEstablished();
 private:
 	QString m_path;
+	int m_exitCode;
+	QString m_errorDescription;
 };
 
 class SCSINotifyServ : public QObject
@@ -63,31 +109,42 @@ class SCSINotifyServ : public QObject
 	Q_OBJECT
 public:
 	SCSINotifyServ(const QString & path, QObject * parent)
-		: QObject(parent), m_thread(path)
+		: QObject(parent), m_thread(path), m_path(path)
 	{
-		QEventLoop emptyLoop;
 		connect(&m_thread, SIGNAL(fileAdded(QString))
 				, this, SIGNAL(fileAdded(QString)));
 		connect(&m_thread, SIGNAL(fileRemoved(QString))
 				, this, SIGNAL(fileRemoved(QString)));
 		connect(&m_thread, SIGNAL(fileModified(QString))
 				, this, SIGNAL(fileModified(QString)));
+		connect(&m_thread, SIGNAL(finished())
+				, this, SLOT(onThreadFinished()));
+	}
+	void run()
+	{
+		QEventLoop emptyLoop;
 		connect(&m_thread, SIGNAL(monitorEstablished())
 				, &emptyLoop, SLOT(quit()));
-
 		m_thread.start();
-		report(tr("Wait for establish monitor: %1.").arg(path));
+		report(tr("Wait for establish monitor: %1.").arg(m_path));
 		emptyLoop.exec(QEventLoop::ExcludeUserInputEvents
 					 | QEventLoop::ExcludeSocketNotifiers
 					 | QEventLoop::WaitForMoreEvents);
 		report(tr("Monitor established."));
 	}
+protected slots:
+	void onThreadFinished()
+	{
+		emit servStoped(m_thread.exitCode(), m_thread.errorDescription());
+	}
 signals:
 	void fileAdded(QString filePath);
 	void fileRemoved(QString filePath);
 	void fileModified(QString filePath);
+	void servStoped(int, QString description);
 private:
 	SCSINotifyThread m_thread;
+	QString m_path;
 };
 
 class SCSDataCenter
@@ -116,7 +173,7 @@ public:
 
 		QString absPath = QFileInfo(path).absoluteFilePath();
 
-		CacheMapIterator it = m_data.lowerBound(path);
+		CacheMapIterator it = m_data.lowerBound(absPath);
 		while (it != m_data.end())
 		{
 			if (it.key().left(absPath.length()) == absPath)
@@ -397,6 +454,9 @@ public:
 		connect(m_inotifyServ, SIGNAL(fileAdded(QString)), this, SLOT(onFileAdded(QString)));
 		connect(m_inotifyServ, SIGNAL(fileRemoved(QString)), this, SLOT(onFileRemoved(QString)));
 		connect(m_inotifyServ, SIGNAL(fileModified(QString)), this, SLOT(onFileModified(QString)));
+		connect(m_inotifyServ, SIGNAL(servStoped(int, QString))
+				, this, SLOT(onINotifyServStoped(int, QString)));
+		m_inotifyServ->run();
 
 		m_dataCenter = new SCSDataCenter;
 		report(tr("First scan."));
@@ -427,6 +487,14 @@ protected slots:
 	void onFileModified(QString filePath)
 	{
 		m_dataCenter->update(filePath);
+	}
+	void onINotifyServStoped(int r, QString description)
+	{
+		if (r != 0)
+		{
+			g_serr << "Error: " << description << endl;
+			::exit(r);
+		}
 	}
 public slots:
 	void quit()
