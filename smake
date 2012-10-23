@@ -1,0 +1,52 @@
+#!/bin/bash
+
+if [ -f Makefile -o -f makefile ]; then
+	make $@
+fi
+
+srcdir=$PWD
+bindir=
+
+while [ "$srcdir" != "/" ]; do
+	if [ -h "$srcdir/build" ]; then
+		bindir=`readlink "$srcdir/build" -f`
+		break
+	fi
+	srcdir=`dirname "$srcdir"`
+done
+
+if [ -z "$bindir" ]; then
+	echo "Could not found build path." > /dev/stderr
+	echo "Go to the root of your src dir and run:" > /dev/stderr
+	echo "ln -s path_to_your_build_path build" > /dev/stderr
+	exit 1
+fi
+
+if [ ! -d "$bindir" ]; then
+	echo "Build dir does not exists!" > /dev/stderr
+	exit 1
+fi
+
+builddir=$bindir${PWD#$srcdir}
+
+while true; do
+	if [ -f "$builddir/Makefile" -o -f "$builddir/makefile" ]; then
+		cd "$builddir" && make $@
+		result=$?
+		echo
+		echo -n "Build in $builddir, "
+		if [ "$result" == "0" ]; then
+			echo "succeeded!"
+		else
+			echo "failed!"
+		fi
+		exit 0
+	fi
+	if [ "$builddir" == "$bindir" ]; then
+		break
+	fi
+	builddir=`dirname "$builddir"`
+done
+
+echo "Could not found Makefile in build dir!" > /dev/stderr
+exit 1
