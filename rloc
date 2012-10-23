@@ -35,8 +35,19 @@ end
 args = []
 show_only_directory = false
 ARGV.each do |x|
-  if x == '-d'
-    show_only_directory = true
+  if x[0,1] == '-'
+    str = x[1..-1]
+    while str && str != ""
+      s = str[0,1]
+      str = str[1..-1]
+      if s == 'd'
+        show_only_directory = true
+      elsif s == 'c'
+        args.insert 0, Dir.pwd
+      else
+        raise "unrecognized arguments #{x}"
+      end
+    end
   else
     args << x
   end

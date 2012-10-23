@@ -1,6 +1,10 @@
 #!/bin/bash
 
+t=1
+
 while ! $@
 do
-	sleep 2s
+	echo sleep ${t}s
+	sleep ${t}s
+	t=$((t+1))
 done

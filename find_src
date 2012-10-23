@@ -37,14 +37,12 @@ def mygrep(fname, re)
   matched = []
   open(fname) do |f| 
     cont = f.read
-    if re =~ cont
-      lidx = 1
-      cont.each_line do |l|
-        if re =~ l
-          matched << GrepMatchedItem.new(lidx, l)
-        end
-        lidx += 1
+    lidx = 1
+    cont.each_line do |l|
+      if re =~ l
+        matched << GrepMatchedItem.new(lidx, l)
       end
+      lidx += 1
     end
   end
   if not matched.empty?
@@ -61,8 +59,8 @@ puts "locating file list"
 
 locate_exps = []
 locate_exps += ['h', 'hpp', 'hxx', 'hh', 'idl'] if $find_header
-locate_exps += ['c', 'cpp', 'cxx', 'cc', 'inl'] if $find_source
-locate_exps += ['txt'] if $find_text
+locate_exps += ['c', 'cpp', 'cxx', 'cc', 'inl', "ui"] if $find_source
+locate_exps += ['txt', 'kui', 'kuip'] if $find_text
 locate_re = "^#{$search_path}.*\\.(#{locate_exps.join '|'})$"
 located_files = []
 open("|locate --regex '#{locate_re}'") do |f|
@@ -80,7 +78,11 @@ located_files.length.times do |i|
   print "[#{i+1}/#{located_files.length}]     \r"
   $stdout.flush
   if File.file?(fname)
-    mygrep(fname, re)
+    begin 
+      mygrep(fname, re)
+    rescue
+      $stderr.puts "Failed to process #{fname}"
+    end
   end
 end
 
