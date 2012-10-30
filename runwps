@@ -1,0 +1,48 @@
+#!/bin/bash
+
+product=$1
+
+if [ -z "$product" ]; then
+	scriptname=`basename $0`
+	product=${scriptname#run}
+fi
+
+srcdir=$PWD
+bindir=
+
+while [ "$srcdir" != "/" ]; do
+	if [ -h "$srcdir/build" ]; then
+		bindir=`readlink "$srcdir/build" -f`
+		break
+	fi
+	srcdir=`dirname "$srcdir"`
+done
+
+if [ -z "$bindir" ]; then
+	bindir=$PWD
+	while [ "$bindir" != "/" ]; do
+		if [ -d "$bindir/WPSOffice/office6" ]; then
+			break
+		fi
+		bindir=`dirname "$bindir"`
+	done
+	if [ "$bindir" == "/" ]; then
+		echo "Could not found build path." > /dev/stderr
+		echo "Go to the root of your src dir and run:" > /dev/stderr
+		echo "ln -s path_to_your_build_path build" > /dev/stderr
+		exit 1
+	fi
+fi
+
+if [ ! -d "$bindir" ]; then
+	echo "Build dir does not exists!" > /dev/stderr
+	exit 1
+fi
+
+if [ ! -f "$bindir/WPSOffice/office6/$product" ]; then
+	echo "$bindir/WPSOffice/office6/$product does not exists!" > /dev/stderr
+	exit 1
+fi
+
+cd "$bindir/WPSOffice/office6"
+LD_LIBRARY_PATH=. ./$product

@@ -48,7 +48,7 @@ def mygrep(fname, re)
   if not matched.empty?
     puts fname
     matched.each do |s|
-      lead = sprintf("%6d: ", s.line)
+      lead = sprintf("%10d: ", s.line)
       cont = s.cont.gsub(re, "\033[1;31m\\&\033[m")
       puts lead + cont
     end
