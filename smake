@@ -2,6 +2,7 @@
 
 if [ -f Makefile -o -f makefile ]; then
 	make $@
+	exit $?
 fi
 
 srcdir=$PWD
@@ -40,7 +41,7 @@ while true; do
 		else
 			echo "failed!"
 		fi
-		exit 0
+		exit $result
 	fi
 	if [ "$builddir" == "$bindir" ]; then
 		break
