@@ -1,14 +1,13 @@
 #!/bin/bash
 
-if [ -f Makefile -o -f makefile ]; then
-	make $@
-	exit $?
-fi
-
 srcdir=$PWD
 bindir=
 
 while [ "$srcdir" != "/" ]; do
+	if [ -f "$srcdir/Makefile" -o -f "$srcdir/makefile" ]; then
+		bindir=$srcdir
+		break
+	fi
 	if [ -h "$srcdir/build" ]; then
 		bindir=`readlink "$srcdir/build" -f`
 		break
@@ -32,7 +31,7 @@ builddir=$bindir${PWD#$srcdir}
 
 while true; do
 	if [ -f "$builddir/Makefile" -o -f "$builddir/makefile" ]; then
-		cd "$builddir" && make $@
+		cd "$builddir" && make "$@"
 		result=$?
 		echo
 		echo -n "Build in $builddir, "

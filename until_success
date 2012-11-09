@@ -2,7 +2,7 @@
 
 t=1
 
-while ! $@
+while ! "$@"
 do
 	echo sleep ${t}s
 	sleep ${t}s

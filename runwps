@@ -45,4 +45,4 @@ if [ ! -f "$bindir/WPSOffice/office6/$product" ]; then
 fi
 
 cd "$bindir/WPSOffice/office6"
-LD_LIBRARY_PATH=. ./$product
+./$product
