@@ -3,6 +3,7 @@
 $search_pat = nil
 $find_header = false
 $find_source = false
+$find_text = false
 
 ARGV.each do |arg|
   if arg == '-h'
@@ -23,7 +24,7 @@ end
 if not $find_header and not $find_source and not $find_text
   $find_header = true
   $find_source = true
-  $find_text
+  $find_text = true
 end
 
 $search_path = Dir.pwd
@@ -49,7 +50,11 @@ def mygrep(fname, re)
     puts fname
     matched.each do |s|
       lead = sprintf("%10d: ", s.line)
-      cont = s.cont.gsub(re, "\033[1;31m\\&\033[m")
+      if STDOUT.tty? 
+        cont = s.cont.gsub(re, "\033[1;31m\\&\033[m")
+      else
+        cont = s.cont
+      end
       puts lead + cont
     end
   end
@@ -59,8 +64,8 @@ puts "locating file list"
 
 locate_exps = []
 locate_exps += ['h', 'hpp', 'hxx', 'hh', 'idl'] if $find_header
-locate_exps += ['c', 'cpp', 'cxx', 'cc', 'inl', "ui"] if $find_source
-locate_exps += ['txt', 'kui', 'kuip'] if $find_text
+locate_exps += ['c', 'cpp', 'cxx', 'cc', 'inl'] if $find_source
+locate_exps += ['txt', 'kui', 'kuip', 'ui'] if $find_text
 locate_re = "^#{$search_path}.*\\.(#{locate_exps.join '|'})$"
 located_files = []
 open("|locate --regex '#{locate_re}'") do |f|

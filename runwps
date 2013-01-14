@@ -1,11 +1,7 @@
 #!/bin/bash
 
-product=$1
-
-if [ -z "$product" ]; then
-	scriptname=`basename $0`
-	product=${scriptname#run}
-fi
+scriptname=`basename $0`
+product=${scriptname#run}
 
 srcdir=$PWD
 bindir=
@@ -45,4 +41,4 @@ if [ ! -f "$bindir/WPSOffice/office6/$product" ]; then
 fi
 
 cd "$bindir/WPSOffice/office6"
-./$product
+./$product "$@"
