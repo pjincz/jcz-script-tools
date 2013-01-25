@@ -1,0 +1,72 @@
+#!/bin/sh
+
+if [ ! -d "$HOME/iMacros/Macros" ]; then
+	echo "iMacros has not installed." > /dev/stderr
+	exit 1
+fi
+
+rm /tmp/wps_commit_list
+
+echo "comment:" >> /tmp/wps_commit_list
+echo >> /tmp/wps_commit_list
+echo >> /tmp/wps_commit_list
+
+echo "bugid: 0" >> /tmp/wps_commit_list
+echo "" >> /tmp/wps_commit_list
+
+echo "files:" >> /tmp/wps_commit_list
+svn status | grep -v "^\?" | sed "s#^........##" >> /tmp/wps_commit_list
+echo >> /tmp/wps_commit_list
+
+vim /tmp/wps_commit_list +2 +startinsert
+
+root=`svn info | grep "^URL:" | sed 's/^.*wpsv6\///'`
+
+sed -n '/comment:/,/bugid:/p' /tmp/wps_commit_list | sed '1d' | sed '$d' | grep -v "^\s*$" > /tmp/wps_commit_comment
+
+bugid=`grep "bugid:" /tmp/wps_commit_list | sed 's/bugid:\s*//' | sed 's/\s*$//'`
+if [ -z "$bugid" ]; then
+	return 0
+fi
+
+sed -n '/files/,$p' /tmp/wps_commit_list | sed '1d' | grep -v "^\s*$" > /tmp/wps_commit_files
+
+comment=`cat /tmp/wps_commit_comment`
+if [ -z "$comment" ]; then
+	return 0
+fi
+files=`cat /tmp/wps_commit_files`
+if [ -z "$files" ]; then
+	return 0
+fi
+
+# create iim
+echo "VERSION BUILD=7601105 RECORDER=FX" > ~/iMacros/Macros/wps_commit.iim
+echo "TAB T=1" >> ~/iMacros/Macros/wps_commit.iim
+echo "URL GOTO=http://10.20.135.3/WpsPreCommit/Management/SVNControl_Addnew.aspx" >> ~/iMacros/Macros/wps_commit.iim
+
+echo -n "TAG POS=1 TYPE=TEXTAREA FORM=NAME:aspnetForm ATTR=ID:ctl00_ContentPlaceHolder1_txtFilePaths CONTENT=" >> ~/iMacros/Macros/wps_commit.iim
+cat /tmp/wps_commit_files | while read LINE; do
+	LINE=`echo $LINE | sed 's/ /<SP>/g'`
+	echo -n "$root$LINE;<BR>" >> ~/iMacros/Macros/wps_commit.iim
+done
+echo >> ~/iMacros/Macros/wps_commit.iim
+
+echo "TAG POS=1 TYPE=INPUT:TEXT FORM=NAME:aspnetForm ATTR=ID:ctl00_ContentPlaceHolder1_txtBugIDs CONTENT=$bugid" >> ~/iMacros/Macros/wps_commit.iim
+
+echo -n "TAG POS=1 TYPE=TEXTAREA FORM=NAME:aspnetForm ATTR=ID:ctl00_ContentPlaceHolder1_txtReason CONTENT=" >> ~/iMacros/Macros/wps_commit.iim
+cat /tmp/wps_commit_comment | while read LINE; do
+	LINE=`echo $LINE | sed 's/ /<SP>/g'`
+	echo -n "$LINE<BR>" >> ~/iMacros/Macros/wps_commit.iim
+done
+echo >> ~/iMacros/Macros/wps_commit.iim
+
+echo "TAG POS=1 TYPE=INPUT:SUBMIT FORM=ID:aspnetForm ATTR=ID:ctl00_ContentPlaceHolder1_btnSubmit" >> ~/iMacros/Macros/wps_commit.iim
+
+firefox "imacros://run/?m=wps_commit.iim"
+
+read -p "Press Enter to commit, or C-c to cancel: " VAR
+
+while ! svn commit -F /tmp/wps_commit_comment `cat /tmp/wps_commit_files`; do
+	sleep 2s
+done
