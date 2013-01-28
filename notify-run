@@ -1,0 +1,6 @@
+#!/bin/sh
+
+trap 'echo' INT # continue deal when Ctrl-C effect
+
+$@
+notify-send "$* complete with exit code $?"
