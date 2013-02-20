@@ -1,0 +1,71 @@
+#!/bin/bash
+# A very simple private db frame
+# first step: create a xxx.bash in ~/.mydb as follow
+#	db_init() # write any init code in this function, will be auto called when use this db first time
+#	{
+#		sql "create table xxx(...)"
+#	}
+#	db_xxx() # write cmds you need, format db_<cmd_name>()
+#	{
+#		...
+#	}
+#	# add else cmds you need
+# second step: use as follow
+#	mydb xxx cmd args_to_cmd
+#	xxx is your db name
+#	cmd is your cmd name
+#	args_to_cmd will pass to you db_xxx impl
+# if you like add follow to ~/.bashrc
+#	alias db.xxx='mydb xxx'
+# now you can call db.xxx cmd ...
+
+if [ $# -lt 2 ]; then
+	echo "mydb <db> <cmd> [args_to_cmd]" > /dev/stderr
+	exit 1
+fi
+	
+
+BINDIR=`dirname $0`
+DB=$1
+CMD=$2
+DBDIR="$HOME/.mydb"
+
+mkdir -p "$DBDIR"
+
+report_commands()
+{
+	echo "all commands: " > /dev/stderr
+	grep "db_[_a-zA-Z0-9]*()" "$DBDIR/$DB.bash" | sed 's/^\s*function\s*//' | sed 's/^\s*db_/\t/' | sed 's/()\s*$//' | grep -v "init" > /dev/stderr
+}
+
+sql()
+{
+	sqlite "$DBDIR/$DB.db" "$@"
+}
+
+if [ ! -f "$DBDIR/$DB.bash" ]; then
+	echo "db: $DB does not exists!" > /dev/stderr
+	echo "all configured dbs: " > /dev/stderr
+	ls "$DBDIR" | sed 's/^/\t/' > /dev/stderr
+	exit 1
+fi
+
+if [ "$CMD" == "init" ]; then
+	echo "do not allow call init directly." > /dev/stderr
+	exit 1
+fi
+
+if ! grep -q "db_$CMD\(\)" "$DBDIR/$DB.bash"; then
+	echo "cmd: $CMD does not exists!" > /dev/stderr
+	report_commands
+	exit 1
+fi
+
+source "$DBDIR/$DB.bash"
+
+if [ ! -f "$DBDIR/$DB.db" ]; then
+	db_init
+fi
+
+db_$CMD "${@:3}"
+
