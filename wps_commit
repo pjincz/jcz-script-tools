@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 if [ ! -d "$HOME/iMacros/Macros" ]; then
 	echo "iMacros has not installed." > /dev/stderr
@@ -48,7 +48,11 @@ echo "URL GOTO=http://10.20.135.3/WpsPreCommit/Management/SVNControl_Addnew.aspx
 echo -n "TAG POS=1 TYPE=TEXTAREA FORM=NAME:aspnetForm ATTR=ID:ctl00_ContentPlaceHolder1_txtFilePaths CONTENT=" >> ~/iMacros/Macros/wps_commit.iim
 cat /tmp/wps_commit_files | while read LINE; do
 	LINE=`echo $LINE | sed 's/ /<SP>/g'`
-	echo -n "$root/$LINE;<BR>" >> ~/iMacros/Macros/wps_commit.iim
+	if [ "$LINE" == "." ]; then
+		echo -n "$root;<BR>" >> ~/iMacros/Macros/wps_commit.iim
+	else
+		echo -n "$root/$LINE;<BR>" >> ~/iMacros/Macros/wps_commit.iim
+	fi
 done
 echo >> ~/iMacros/Macros/wps_commit.iim
 
