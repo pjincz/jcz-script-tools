@@ -1,0 +1,12 @@
+#!/bin/bash
+
+script_dir=`dirname "$0"`
+file_type=$1
+file_name=$2
+
+if [ ! -f "$script_dir/template/$file_type.sh" ]; then
+	echo "not template named $file_type" >> /dev/stderr
+	exit 1
+fi
+
+exec bash "$script_dir/template/$file_type.sh" "$file_name"
