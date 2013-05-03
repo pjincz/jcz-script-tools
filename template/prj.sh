@@ -19,5 +19,5 @@ all: @prj@
 	g++ main.cpp -o @prj@
 
 run: @prj@
-	./@prj@
+	@./@prj@
 EOF
