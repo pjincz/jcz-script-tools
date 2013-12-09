@@ -3,8 +3,12 @@
 root=`svn info | grep "^URL:" | sed 's/^.*wpsv6\///'`
 
 echo -ne "\033[1;40;32m"
-svn status | grep -v "^\?" | sed "s#^........#${root}/#" | sed 's/$/;/' | tee >(xclip -selection clipboard)
+if [ -n "`which xclip`" ]; then
+	svn status | grep -v "^\?" | sed "s#^........#${root}/#" | sed 's/$/;/' | tee >(xclip -selection clipboard)
+	echo
+	echo -e "\033[1;40;31m内容已经复制到剪贴板\033[0m"
+else
+	svn status | grep -v "^\?" | sed "s#^........#${root}/#" | sed 's/$/;/'
+fi
 
-echo
-echo -e "\033[1;40;31m内容已经复制到剪贴板\033[0m"
 
