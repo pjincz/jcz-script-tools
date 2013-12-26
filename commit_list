@@ -9,6 +9,7 @@ if [ -n "`which xclip`" ]; then
 	echo -e "\033[1;40;31m内容已经复制到剪贴板\033[0m"
 else
 	svn status | grep -v "^\?" | sed "s#^........#${root}/#" | sed 's/$/;/'
+	echo -ne "\033[0m"
 fi
 
 
